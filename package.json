@@ -1,0 +1,10 @@
+{
+  "name": "tdms-fullstack",
+  "version": "1.0.0",
+  "description": "Tiger Database Management System",
+  "scripts": {
+    "postinstall": "cd backend && npm install",
+    "db:init": "cd backend && npm run db:init",
+    "start": "cd backend && npm run db:init && npm start"
+  }
+}

@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TDMS — Tiger Database Management System</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐯</text></svg>">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f4f6f4;--surface:#fff;--surface2:#f0f7f2;--surface3:#e4f0e6;
+    --border:#d4e8d8;--border2:#b8d4bc;
+    --primary:#2d6a4f;--primary-d:#1b4332;--primary-l:#52b788;--primary-pale:#e8f5ee;
+    --text:#1a2e1e;--text2:#4a7560;--text3:#8aad96;
+    --info-bg:#e6f1fb;--info:#185fa5;
+    --danger-bg:#fbeaf0;--danger:#993556;
+    --warn-bg:#faeeda;--warn:#854f0b;
+    --ok-bg:#eaf3de;--ok:#3b6d11;
+    --r:8px;--r-lg:12px;
+    --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --bg:#0a130c;--surface:#111e14;--surface2:#172b1a;--surface3:#1d3521;
+      --border:#2a4a30;--border2:#3a6040;
+      --primary:#52b788;--primary-d:#74c69d;--primary-l:#95d5b2;--primary-pale:#0e2b16;
+      --text:#d8f3dc;--text2:#95d5b2;--text3:#4a7560;
+      --info-bg:#0c2f53;--info:#7cb9f5;
+      --danger-bg:#3d0f1f;--danger:#f4a0bc;
+      --warn-bg:#3d2000;--warn:#f5c97a;
+      --ok-bg:#0e2e16;--ok:#74c69d;
+    }
+  }
+  body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+  /* ── LAYOUT ── */
+  .app{display:flex;height:100vh;overflow:hidden}
+  .sidebar{width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh}
+  .main{flex:1;overflow-y:auto;background:var(--bg)}
+
+  /* ── SIDEBAR ── */
+  .logo{padding:18px 16px 14px;border-bottom:1px solid var(--border)}
+  .logo-brand{display:flex;align-items:center;gap:10px}
+  .logo-icon{width:36px;height:36px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .logo-title{font-size:14px;font-weight:700;color:var(--primary)}
+  .logo-sub{font-size:10px;color:var(--text3);margin-top:2px}
+  .nav{flex:1;padding:8px 0}
+  .nav-sec{padding:8px 16px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.06em;text-transform:uppercase}
+  .ni{display:flex;align-items:center;gap:9px;padding:9px 12px;font-size:13px;cursor:pointer;margin:1px 7px;border-radius:var(--r);color:var(--text2);user-select:none;transition:all .15s}
+  .ni:hover{background:var(--surface2);color:var(--text)}
+  .ni.active{background:var(--primary-pale);color:var(--primary);font-weight:600}
+  .ni i{font-size:18px}
+  .sf{padding:12px 16px;border-top:1px solid var(--border)}
+  .ua{display:flex;align-items:center;gap:9px}
+  .uav{width:32px;height:32px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+
+  /* ── TOPBAR ── */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+  .topbar h1{font-size:17px;font-weight:700}
+  .topbar p{font-size:11px;color:var(--text2);margin-top:1px}
+  .tb-r{display:flex;gap:8px;align-items:center}
+
+  /* ── BUTTONS ── */
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;font-size:12px;font-weight:500;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface);cursor:pointer;color:var(--text);font-family:inherit;transition:all .15s;line-height:1;white-space:nowrap}
+  .btn:hover{background:var(--surface2)}
+  .btn-p{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn-p:hover{background:var(--primary-d);border-color:var(--primary-d)}
+  .btn-d{background:var(--danger-bg);border-color:var(--danger);color:var(--danger)}
+  .btn-sm{padding:5px 9px;font-size:11px}
+  .btn:disabled{opacity:.5;cursor:default}
+
+  /* ── CARDS ── */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px}
+  .ct{font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.04em}
+
+  /* ── STAT CARDS ── */
+  .sg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:18px 22px 0}
+  .sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px}
+  .sc-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:10px}
+  .sc-label{font-size:10px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .sc-value{font-size:24px;font-weight:800;line-height:1}
+  .sc-sub{font-size:10px;color:var(--text3);margin-top:4px}
+
+  /* ── CHART GRID ── */
+  .cg2{display:grid;grid-template-columns:1fr 2fr;gap:12px;padding:12px 22px}
+  .bg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 22px 20px}
+
+  /* ── BADGES ── */
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600;white-space:nowrap}
+  .bM{background:var(--info-bg);color:var(--info)}
+  .bF{background:var(--danger-bg);color:var(--danger)}
+  .bU{background:var(--surface2);color:var(--text2)}
+  .bactive{background:var(--ok-bg);color:var(--ok)}
+  .binactive{background:var(--warn-bg);color:var(--warn)}
+  .bboth{background:#eeedfe;color:#534ab7}
+  .bleft{background:var(--warn-bg);color:var(--warn)}
+  .bright{background:#e1f5ee;color:#0f6e56}
+
+  /* ── TIGER GRID ── */
+  .tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:18px 22px}
+  .tc2{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;transition:border .15s,box-shadow .15s}
+  .tc2:hover{border-color:var(--primary);box-shadow:var(--sh)}
+  .tc2-photo{height:90px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+  .tc2-body{padding:10px 12px}
+  .tc2-code{font-size:13px;font-weight:700}
+  .tc2-name{font-size:11px;color:var(--text2);margin-top:1px}
+  .tc2-meta{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap}
+  .tc2-stats{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:6px}
+
+  /* ── SEARCH BAR ── */
+  .sb{display:flex;align-items:center;gap:9px;padding:10px 22px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .si{flex:1;min-width:130px;max-width:260px;padding:7px 11px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-family:inherit;outline:none}
+  .si:focus,.fs:focus{border-color:var(--primary)}
+  .fs{padding:7px 9px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-family:inherit;outline:none}
+
+  /* ── TABLE ── */
+  .tw{overflow-x:auto}
+  .dt{width:100%;border-collapse:collapse;font-size:12px}
+  .dt th{text-align:left;padding:9px 11px;font-weight:700;font-size:10px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--surface2);cursor:pointer;user-select:none;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+  .dt th:hover{color:var(--text)}
+  .dt td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .dt tbody tr:hover td{background:var(--surface2)}
+  .av{border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;vertical-align:middle;flex-shrink:0}
+
+  /* ── PAGINATION ── */
+  .pg{display:flex;align-items:center;gap:3px;padding:10px 18px;border-top:1px solid var(--border);justify-content:flex-end;font-size:11px}
+  .pb{padding:4px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);cursor:pointer;font-size:11px;color:var(--text);font-family:inherit;transition:all .15s}
+  .pb.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .pb:hover:not(.active){background:var(--surface2)}
+  .pb:disabled{opacity:.4;cursor:default}
+
+  /* ── MAP ── */
+  #map{width:100%;height:calc(100vh - 165px);border-radius:var(--r-lg);border:1px solid var(--border)}
+
+  /* ── RECENT ── */
+  .ri{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+  .ri:last-child{border-bottom:none}
+  .ti{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+  .ti:last-child{border-bottom:none}
+
+  /* ── MODAL ── */
+  .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-start;justify-content:center;padding:36px 16px;overflow-y:auto;backdrop-filter:blur(3px)}
+  .mo.open{display:flex}
+  .mb{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);width:600px;max-width:100%;flex-shrink:0;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+  .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+  .mt2{font-size:15px;font-weight:700}
+  .mbody{padding:20px}
+  .mf{display:flex;justify-content:flex-end;gap:8px;padding:14px 20px;border-top:1px solid var(--border)}
+
+  /* ── FORM ── */
+  .fg{margin-bottom:13px}
+  .fl{display:block;font-size:10px;font-weight:700;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+  .fi{width:100%;padding:8px 11px;font-size:12px;border:1px solid var(--border2);border-radius:var(--r);background:var(--surface2);color:var(--text);font-family:inherit;outline:none;transition:border .15s}
+  .fi:focus{border-color:var(--primary)}
+  .fr{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .rg{display:flex;gap:12px;margin-top:4px;flex-wrap:wrap}
+  .rl{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;user-select:none}
+  .ub{border:1.5px dashed var(--border2);border-radius:var(--r);padding:12px;text-align:center;cursor:pointer;font-size:11px;color:var(--text2);position:relative;transition:all .15s;margin-top:4px}
+  .ub input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .ub:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-pale)}
+  .pr{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+  .pi{width:52px;height:52px;border-radius:6px;object-fit:cover;border:1px solid var(--border)}
+  .ph{width:52px;height:52px;border-radius:6px;background:var(--primary-pale);display:flex;align-items:center;justify-content:center;color:var(--primary);border:1px solid var(--border)}
+  .required{color:var(--danger);margin-left:2px}
+
+  /* ── STRIPE DETAIL ── */
+  .sp{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .sbox{border:1px solid var(--border);border-radius:var(--r);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;text-align:center;background:var(--surface2)}
+
+  /* ── LOADING / SKELETON ── */
+  .skeleton{background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);background-size:200% 100%;animation:skel 1.4s infinite;border-radius:var(--r)}
+  @keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .loading-row{height:40px;margin-bottom:8px}
+
+  /* ── SPINNER ── */
+  .spinner{width:20px;height:20px;border:2.5px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .center-spin{display:flex;align-items:center;justify-content:center;padding:60px}
+
+  /* ── TOAST ── */
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--primary);color:#fff;padding:11px 16px;border-radius:var(--r);font-size:12px;font-weight:500;z-index:999;display:flex;align-items:center;gap:7px;box-shadow:0 4px 20px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:all .3s;max-width:340px}
+  .toast.show{transform:translateY(0);opacity:1}
+
+  /* ── EMPTY ── */
+  .empty{text-align:center;padding:60px 20px;color:var(--text3)}
+  .empty i{font-size:44px;display:block;margin-bottom:10px}
+
+  /* ── CONFIRM ── */
+  .cbox{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);padding:26px;width:360px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:900px){
+    .sidebar{width:58px;min-width:58px}
+    .logo-title,.logo-sub,.ni span,.nav-sec,.ua div{display:none}
+    .ni{padding:10px;justify-content:center;margin:2px 5px}
+    .sg{grid-template-columns:1fr 1fr}
+    .cg2,.bg2{grid-template-columns:1fr}
+  }
+  @media(max-width:600px){
+    .sg{grid-template-columns:1fr 1fr}
+    .fr{grid-template-columns:1fr}
+    .mb{width:100%}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+<!-- ── SIDEBAR ── -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-brand">
+      <div class="logo-icon">🐯</div>
+      <div><div class="logo-title">TDMS</div><div class="logo-sub">Tiger Database System</div></div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-sec">Menu</div>
+    <div class="ni active" id="n-dashboard" onclick="go('dashboard')"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></div>
+    <div class="ni" id="n-individu"  onclick="go('individu')"><i class="ti ti-user-circle"></i><span>Individu</span></div>
+    <div class="ni" id="n-data"      onclick="go('data')"><i class="ti ti-database"></i><span>Data</span></div>
+    <div class="ni" id="n-peta"      onclick="go('peta')"><i class="ti ti-map-2"></i><span>Peta</span></div>
+  </div>
+  <div class="sf">
+    <div class="ua">
+      <div class="uav">AD</div>
+      <div><div style="font-size:12px;font-weight:600">Admin</div><div style="font-size:10px;color:var(--text3)">v1.0.0</div></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── MAIN ── -->
+<main class="main" id="main"></main>
+</div>
+
+<!-- ── SIGHTING MODAL ── -->
+<div class="mo" id="modal" role="dialog" aria-modal="true">
+  <div class="mb">
+    <div class="mh"><div class="mt2" id="mtitle">Tambah Rekaman</div><button class="btn btn-sm" onclick="closeModal()" aria-label="Tutup"><i class="ti ti-x"></i></button></div>
+    <div class="mbody" id="mbody"></div>
+    <div class="mf"><button class="btn" onclick="closeModal()">Batal</button><button class="btn btn-p" id="save-btn" onclick="saveSighting()"><i class="ti ti-device-floppy"></i> Simpan</button></div>
+  </div>
+</div>
+
+<!-- ── TIGER DETAIL MODAL ── -->
+<div class="mo" id="tmodal" role="dialog" aria-modal="true">
+  <div class="mb" style="width:640px">
+    <div class="mh"><div class="mt2" id="tmtitle">Detail Individu</div><button class="btn btn-sm" onclick="closeTM()" aria-label="Tutup"><i class="ti ti-x"></i></button></div>
+    <div class="mbody" id="tmbody"></div>
+    <div class="mf"><button class="btn" onclick="closeTM()">Tutup</button></div>
+  </div>
+</div>
+
+<!-- ── CONFIRM ── -->
+<div class="mo" id="confirm" style="align-items:center" role="alertdialog" aria-modal="true">
+  <div class="cbox">
+    <i class="ti ti-alert-triangle" style="font-size:38px;color:var(--danger);display:block;margin-bottom:12px"></i>
+    <p style="font-size:15px;font-weight:700;margin-bottom:6px">Hapus Rekaman?</p>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:20px">Data ini akan dihapus permanen dari database dan tidak dapat dikembalikan.</p>
+    <div style="display:flex;gap:9px;justify-content:center">
+      <button class="btn" onclick="cancelDel()">Batal</button>
+      <button class="btn btn-d" onclick="confirmDel()"><i class="ti ti-trash"></i> Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ── SCRIPTS ── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════
+const API = window.location.origin + '/api';
+const TC  = {
+  'TGR-001':'#1B4332','TGR-002':'#2D6A4F','TGR-003':'#6B7280',
+  'TGR-004':'#9D174D','TGR-005':'#1D4ED8','TGR-006':'#92400E',
+  'TGR-007':'#7C2D12','TGR-008':'#4C1D95',
+};
+const SEX  = {M:'Jantan',F:'Betina',U:'Tidak Diketahui'};
+const SIDE = {both:'Keduanya',left:'Kiri',right:'Kanan'};
+const MN   = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let page='dashboard', editId=null, delId=null;
+let lmap=null, lmarkers=[];
+let dsearch='', dsex='', dsort='recorded_date', dasc=false, dpage=1;
+let isearch='', isex='';
+let mTiger='', mSex='';
+const PER = 15;
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+async function api(path, opts={}) {
+  try {
+    const res = await fetch(API + path, {
+      headers: { 'Accept':'application/json', ...(opts.headers||{}) },
+      ...opts
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+    return json;
+  } catch (err) {
+    toast('Error: ' + err.message, 'err');
+    throw err;
+  }
+}
+
+function fdate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return `${dt.getDate()} ${MN[dt.getMonth()]} ${dt.getFullYear()}`;
+}
+
+function av(code, sz=28) {
+  const c = TC[code] || '#6B7280';
+  return `<div class="av" style="background:${c};width:${sz}px;height:${sz}px;font-size:${sz<32?9:11}px">${code.replace('TGR-','')}</div>`;
+}
+
+function bsex(s)  { return `<span class="badge b${s}">${SEX[s]||s}</span>`; }
+function bside(s) { return `<span class="badge b${s}">${SIDE[s]||s}</span>`; }
+
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.innerHTML = `<i class="ti ti-${type==='err'?'x':'check'}"></i> ${msg}`;
+  el.style.background = type==='err' ? 'var(--danger)' : 'var(--primary)';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function spinner() {
+  return `<div class="center-spin"><div class="spinner"></div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════
+function go(p) {
+  page = p;
+  document.querySelectorAll('.ni').forEach(e => e.classList.remove('active'));
+  document.getElementById('n-' + p)?.classList.add('active');
+  const main = document.getElementById('main');
+  if (p === 'dashboard') renderDashboard(main);
+  else if (p === 'individu') renderIndividu(main);
+  else if (p === 'data')     renderData(main);
+  else if (p === 'peta')     renderPeta(main);
+}
+
+// ═══════════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════════
+async function renderDashboard(main) {
+  main.innerHTML = `
+    <div class="topbar"><div><h1>Dashboard</h1><p>Ringkasan monitoring harimau Sumatera</p></div>
+      <div class="tb-r"><button class="btn btn-p" onclick="go('data')"><i class="ti ti-plus"></i> Tambah Rekaman</button></div>
+    </div>
+    <div class="sg">
+      ${[1,2,3,4].map(()=>`<div class="sc"><div class="skeleton" style="height:34px;width:34px;border-radius:8px;margin-bottom:10px"></div><div class="skeleton loading-row" style="height:14px;width:80px"></div><div class="skeleton" style="height:28px;width:60px;margin-top:6px"></div></div>`).join('')}
+    </div>
+    <div class="cg2" style="margin-top:12px">
+      <div class="card" style="height:280px">${spinner()}</div>
+      <div class="card" style="height:280px">${spinner()}</div>
+    </div>
+    <div class="bg2">
+      <div class="card" style="height:260px">${spinner()}</div>
+      <div class="card" style="height:260px">${spinner()}</div>
+    </div>`;
+
+  try {
+    const [stats, monthly, recent, tops] = await Promise.all([
+      api('/dashboard/stats'),
+      api('/dashboard/monthly'),
+      api('/dashboard/recent?limit=7'),
+      api('/dashboard/top-tigers'),
+    ]);
+    const s = stats.data;
+    const g = s.gender;
+
+    main.innerHTML = `
+      <div class="topbar"><div><h1>Dashboard</h1><p>Ringkasan monitoring harimau Sumatera</p></div>
+        <div class="tb-r"><button class="btn btn-p" onclick="go('data')"><i class="ti ti-plus"></i> Tambah Rekaman</button></div>
+      </div>
+      <div class="sg">
+        <div class="sc"><div class="sc-icon" style="background:var(--primary-pale);color:var(--primary)"><i class="ti ti-paw"></i></div><div class="sc-label">Total Individu</div><div class="sc-value" style="color:var(--primary)">${s.tigers.total}</div><div class="sc-sub">${s.tigers.active} aktif · ${s.tigers.inactive} tidak aktif</div></div>
+        <div class="sc"><div class="sc-icon" style="background:var(--info-bg);color:var(--info)"><i class="ti ti-eye"></i></div><div class="sc-label">Total Rekaman</div><div class="sc-value" style="color:var(--info)">${s.sightings}</div><div class="sc-sub">${s.sightingsLast30} dalam 30 hari terakhir</div></div>
+        <div class="sc"><div class="sc-icon" style="background:var(--info-bg);color:var(--info)"><i class="ti ti-gender-male"></i></div><div class="sc-label">Jantan</div><div class="sc-value" style="color:var(--info)">${g.M}</div><div class="sc-sub">${s.tigers.total ? Math.round(g.M/s.tigers.total*100) : 0}% dari total individu</div></div>
+        <div class="sc"><div class="sc-icon" style="background:var(--danger-bg);color:var(--danger)"><i class="ti ti-gender-female"></i></div><div class="sc-label">Betina</div><div class="sc-value" style="color:var(--danger)">${g.F}</div><div class="sc-sub">${s.tigers.total ? Math.round(g.F/s.tigers.total*100) : 0}% dari total individu</div></div>
+      </div>
+      <div class="cg2">
+        <div class="card"><div class="ct"><i class="ti ti-chart-donut-2"></i>Distribusi JK</div><div style="position:relative;height:170px"><canvas id="cg"></canvas></div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px;font-size:11px">
+            ${[['#185FA5','Jantan',g.M],['#B5456B','Betina',g.F],['#888780','Tdk Diketahui',g.U]].map(([c,l,v])=>`<div style="display:flex;align-items:center;justify-content:space-between"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:${c};display:inline-block"></span>${l}</span><strong>${v} (${s.tigers.total?Math.round(v/s.tigers.total*100):0}%)</strong></div>`).join('')}
+          </div>
+        </div>
+        <div class="card"><div class="ct"><i class="ti ti-chart-bar"></i>Rekaman per Bulan (12 Bulan Terakhir)</div><div style="position:relative;height:220px"><canvas id="cm"></canvas></div></div>
+      </div>
+      <div class="bg2">
+        <div class="card"><div class="ct"><i class="ti ti-clock"></i>Rekaman Terbaru</div>
+          ${recent.data.map(r => `<div class="ri">${av(r.tiger_code)}<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px">${r.tiger_code}${r.tiger_name?` <span style="font-weight:400;color:var(--text2)">· ${r.tiger_name}</span>`:''}</div><div style="color:var(--text2);font-size:10px">${fdate(r.recorded_date)} · ${r.recorded_time?.slice(0,5)}</div></div>${bsex(r.sex)}</div>`).join('') || '<div class="empty"><i class="ti ti-eye-off"></i><p>Belum ada rekaman</p></div>'}
+        </div>
+        <div class="card"><div class="ct"><i class="ti ti-trophy"></i>Top 5 Individu Terekam</div>
+          ${tops.data.map((t,i)=>`<div class="ti"><div style="width:22px;text-align:center;font-size:${i<3?15:11}px">${['🥇','🥈','🥉','4','5'][i]}</div>${av(t.tiger_code,26)}<div style="flex:1"><div style="font-weight:600;font-size:12px">${t.tiger_code}</div><div style="font-size:10px;color:var(--text2)">${t.name||'Tidak bernama'}</div></div><div style="font-weight:800;color:var(--primary);font-size:14px">${t.sighting_count}×</div></div>`).join('') || '<div class="empty" style="padding:30px"><p>Belum ada data</p></div>'}
+        </div>
+      </div>`;
+
+    // Charts
+    if (typeof Chart !== 'undefined') {
+      new Chart(document.getElementById('cg'), {
+        type: 'doughnut',
+        data: { labels:['Jantan','Betina','Tdk Diketahui'], datasets:[{data:[g.M,g.F,g.U],backgroundColor:['#185FA5','#B5456B','#888780'],borderWidth:0,hoverOffset:4}] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, cutout:'65%' }
+      });
+      new Chart(document.getElementById('cm'), {
+        type: 'bar',
+        data: { labels: monthly.data.map(d=>d.label), datasets:[{data:monthly.data.map(d=>d.count),backgroundColor:'#52B788',borderRadius:5,hoverBackgroundColor:'#2D6A4F',label:'Rekaman'}] },
+        options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}},x:{ticks:{font:{size:10}},grid:{display:false}}} }
+      });
+    }
+  } catch (e) { /* error already toasted */ }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INDIVIDU
+// ═══════════════════════════════════════════════════════
+async function renderIndividu(main) {
+  main.innerHTML = buildIndividuShell();
+  await loadIndividu();
+}
+
+function buildIndividuShell() {
+  return `
+  <div class="topbar"><div><h1>Individu Harimau</h1><p id="itotal">Memuat…</p></div>
+    <div class="tb-r"><button class="btn btn-p" onclick="openAddTiger()"><i class="ti ti-plus"></i> Tambah Individu</button></div>
+  </div>
+  <div class="sb">
+    <i class="ti ti-search" style="color:var(--text2)"></i>
+    <input class="si" type="search" placeholder="Cari ID atau nama…" value="${isearch}" oninput="isearch=this.value;loadIndividu()" aria-label="Cari">
+    <select class="fs" onchange="isex=this.value;loadIndividu()" aria-label="Filter JK">
+      <option value="" ${!isex?'selected':''}>Semua Jenis Kelamin</option>
+      <option value="M" ${isex==='M'?'selected':''}>Jantan</option>
+      <option value="F" ${isex==='F'?'selected':''}>Betina</option>
+      <option value="U" ${isex==='U'?'selected':''}>Tidak Diketahui</option>
+    </select>
+  </div>
+  <div class="tg" id="tgrid"><div class="center-spin"><div class="spinner"></div></div></div>`;
+}
+
+async function loadIndividu() {
+  document.getElementById('tgrid').innerHTML = `<div class="center-spin"><div class="spinner"></div></div>`;
+  const params = new URLSearchParams();
+  if (isearch) params.set('search', isearch);
+  if (isex)    params.set('sex', isex);
+  try {
+    const { data, total } = await api('/tigers?' + params);
+    document.getElementById('itotal').textContent = `${total} individu terdaftar`;
+    document.getElementById('tgrid').innerHTML = data.length
+      ? data.map(t => {
+          const c = TC[t.tiger_code] || '#6B7280';
+          return `<div class="tc2" onclick="openTiger('${t.tiger_code}')">
+            <div class="tc2-photo" style="background:${c}">
+              <div style="text-align:center">
+                <div style="font-size:20px;font-weight:700">${t.tiger_code.replace('TGR-','#')}</div>
+                <div style="font-size:10px;opacity:.8;margin-top:2px">${t.sex==='M'?'♂ Jantan':t.sex==='F'?'♀ Betina':'? Tidak Diketahui'}</div>
+              </div>
+            </div>
+            <div class="tc2-body">
+              <div class="tc2-code">${t.tiger_code}</div>
+              <div class="tc2-name">${t.name||'<em style="opacity:.5">Tidak bernama</em>'}</div>
+              <div class="tc2-meta">${bsex(t.sex)}<span class="badge b${t.status}">${t.status==='active'?'Aktif':'Tidak Aktif'}</span></div>
+              <div class="tc2-stats"><span><i class="ti ti-eye"></i> ${t.sighting_count||0} rekaman</span><span>${t.last_sighting?fdate(t.last_sighting):'-'}</span></div>
+            </div>
+          </div>`;
+        }).join('')
+      : `<div class="empty"><i class="ti ti-search-off"></i><p>Tidak ada harimau yang cocok.</p></div>`;
+  } catch (e) { document.getElementById('tgrid').innerHTML = `<div class="empty"><i class="ti ti-wifi-off"></i><p>Gagal memuat data.</p></div>`; }
+}
+
+async function openTiger(code) {
+  document.getElementById('tmtitle').textContent = code;
+  document.getElementById('tmbody').innerHTML = spinner();
+  document.getElementById('tmodal').classList.add('open');
+  try {
+    const [tRes, sRes] = await Promise.all([
+      api('/tigers/' + code),
+      api('/tigers/' + code + '/sightings'),
+    ]);
+    const t  = tRes.data;
+    const ss = sRes.data;
+    const c  = TC[code] || '#6B7280';
+    document.getElementById('tmtitle').textContent = `${code}${t.name?' — '+t.name:''}`;
+    document.getElementById('tmbody').innerHTML = `
+      <div style="display:flex;align-items:center;gap:13px;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px">
+        ${av(code, 52)}
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:700">${code}</div>
+          <div style="font-size:12px;color:var(--text2)">${t.name||'Tidak bernama'}</div>
+          <div style="display:flex;gap:5px;margin-top:7px">${bsex(t.sex)}<span class="badge b${t.status}">${t.status==='active'?'Aktif':'Tidak Aktif'}</span></div>
+        </div>
+        <div style="text-align:right"><div style="font-size:26px;font-weight:800;color:var(--primary)">${t.sighting_count||0}</div><div style="font-size:10px;color:var(--text2)">Total rekaman</div></div>
+      </div>
+      <p style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">FOTO BELANG REFERENSI</p>
+      <div class="sp">
+        ${['stripe_left_url','stripe_right_url'].map((k,i)=>`<div>
+          <p style="font-size:10px;color:var(--text2);margin-bottom:4px">Sisi ${i===0?'Kiri':'Kanan'}</p>
+          <div class="sbox" style="border-color:${c}30">
+            ${t[k] ? `<img src="${t[k]}" style="width:100%;height:100%;object-fit:contain;border-radius:6px" alt="Foto belang">`
+                   : `<div style="text-align:center"><i class="ti ti-camera-off" style="font-size:24px;color:${c}60;display:block;margin-bottom:4px"></i><div style="font-size:10px;color:var(--text3)">Belum ada foto</div></div>`}
+          </div>
+        </div>`).join('')}
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--r);padding:10px 13px;font-size:11px;line-height:1.8;margin-bottom:14px">
+        <div style="display:flex;gap:22px;flex-wrap:wrap">
+          <span><span style="color:var(--text2)">Pertama terekam: </span><strong>${fdate(t.first_recorded_at)}</strong></span>
+          <span><span style="color:var(--text2)">Terakhir terekam: </span><strong>${ss[0]?fdate(ss[0].recorded_date):'—'}</strong></span>
+        </div>
+        ${t.notes?`<div style="color:var(--text2);margin-top:4px">${t.notes}</div>`:''}
+      </div>
+      <p style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">RIWAYAT REKAMAN (${ss.length})</p>
+      <div style="overflow-x:auto;max-height:210px;overflow-y:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr>${['Tanggal','Waktu','Belang','Foto','Catatan'].map(h=>`<th style="text-align:left;padding:6px 10px;font-size:9px;color:var(--text2);border-bottom:1px solid var(--border);background:var(--surface2);font-weight:700;text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${ss.length ? ss.map(s=>`<tr>
+              <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2);white-space:nowrap">${fdate(s.recorded_date)}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2)">${s.recorded_time?.slice(0,5)}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid var(--border)">${bside(s.stripe_side)}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid var(--border)"><div style="display:flex;gap:3px">${s.has_stripe_left?'<span style="font-size:9px;background:var(--ok-bg);color:var(--ok);padding:1px 5px;border-radius:3px;font-weight:700">L</span>':''}${s.has_stripe_right?'<span style="font-size:9px;background:#e1f5ee;color:#0f6e56;padding:1px 5px;border-radius:3px;font-weight:700">R</span>':''}</div></td>
+              <td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.notes||'—'}</td>
+            </tr>`).join('')
+            : `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text3)">Belum ada rekaman.</td></tr>`}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) { document.getElementById('tmbody').innerHTML = `<div class="empty"><i class="ti ti-wifi-off"></i><p>Gagal memuat data.</p></div>`; }
+}
+
+function closeTM() { document.getElementById('tmodal').classList.remove('open'); }
+
+function openAddTiger() {
+  alert('Fitur tambah individu baru akan tersedia di versi berikutnya.\nGunakan form Data untuk menambah rekaman dengan tiger_code baru, sistem akan otomatis mengenali individu baru.');
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════
+let tigerList = [];
+
+async function renderData(main) {
+  main.innerHTML = buildDataShell();
+  if (!tigerList.length) {
+    const r = await api('/tigers');
+    tigerList = r.data || [];
+  }
+  await loadData();
+}
+
+function buildDataShell() {
+  return `
+  <div class="topbar">
+    <div><h1>Data Rekaman</h1><p id="dtotal">Memuat…</p></div>
+    <div class="tb-r">
+      <button class="btn" onclick="window.open('${API}/sightings/export/csv','_blank')"><i class="ti ti-download"></i> Export CSV</button>
+      <button class="btn btn-p" onclick="openAdd()"><i class="ti ti-plus"></i> Tambah Rekaman</button>
+    </div>
+  </div>
+  <div class="sb">
+    <i class="ti ti-search" style="color:var(--text2)"></i>
+    <input class="si" type="search" placeholder="Cari ID harimau atau catatan…" value="${dsearch}" oninput="dsearch=this.value;dpage=1;loadData()" aria-label="Cari">
+    <select class="fs" onchange="dsex=this.value;dpage=1;loadData()" aria-label="Filter JK">
+      <option value="" ${!dsex?'selected':''}>Semua JK</option>
+      <option value="M" ${dsex==='M'?'selected':''}>Jantan</option>
+      <option value="F" ${dsex==='F'?'selected':''}>Betina</option>
+      <option value="U" ${dsex==='U'?'selected':''}>Tidak Diketahui</option>
+    </select>
+    <span style="font-size:11px;color:var(--text2)" id="dfound"></span>
+  </div>
+  <div id="dtable-wrap">${spinner()}</div>
+  <div id="dpagi" class="pg"></div>`;
+}
+
+async function loadData() {
+  document.getElementById('dtable-wrap').innerHTML = spinner();
+  const si = c => c === dsort ? (dasc ? ' ↑' : ' ↓') : '';
+  const params = new URLSearchParams({
+    sort: dsort, order: dasc?'asc':'desc',
+    page: dpage, per: PER,
+  });
+  if (dsearch) params.set('search', dsearch);
+  if (dsex)    params.set('sex', dsex);
+  try {
+    const { data, total, pages } = await api('/sightings?' + params);
+    document.getElementById('dtotal').textContent  = `${total} total rekaman terdokumentasi`;
+    document.getElementById('dfound').textContent  = `${total} hasil`;
+
+    const thC = (col, label) => `<th onclick="srt('${col}')">${label}${si(col)}</th>`;
+    const rows = data.map((s,i) => `<tr>
+      <td style="color:var(--text2)">${(dpage-1)*PER+i+1}</td>
+      <td><div style="display:flex;align-items:center;gap:7px">${av(s.tiger_code,24)}<span style="font-weight:700">${s.tiger_code}</span></div></td>
+      <td>${bsex(s.sex)}</td>
+      <td style="font-family:monospace;font-size:11px">${parseFloat(s.latitude).toFixed(5)}</td>
+      <td style="font-family:monospace;font-size:11px">${parseFloat(s.longitude).toFixed(5)}</td>
+      <td>${bside(s.stripe_side)}</td>
+      <td style="white-space:nowrap">${fdate(s.recorded_date)}</td>
+      <td style="color:var(--text2)">${s.recorded_time?.slice(0,5)}</td>
+      <td><div style="display:flex;gap:3px">${s.has_stripe_left?'<span style="font-size:9px;background:var(--ok-bg);color:var(--ok);padding:1px 5px;border-radius:3px;font-weight:700">L</span>':''}${s.has_stripe_right?'<span style="font-size:9px;background:#e1f5ee;color:#0f6e56;padding:1px 5px;border-radius:3px;font-weight:700">R</span>':''}</div></td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2);font-size:11px" title="${s.notes||''}">${s.notes||'—'}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="openEdit(${s.id})" title="Edit"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-d" onclick="askDel(${s.id})" title="Hapus"><i class="ti ti-trash"></i></button>
+      </div></td>
+    </tr>`).join('');
+
+    document.getElementById('dtable-wrap').innerHTML = `
+      <div class="tw"><table class="dt">
+        <thead><tr>
+          ${thC('id','No')}${thC('tiger_code','ID Harimau')}${thC('sex','JK')}
+          ${thC('latitude','Lat (Y)')}${thC('longitude','Lng (X)')}${thC('stripe_side','Belang')}
+          ${thC('recorded_date','Tanggal')}${thC('recorded_time','Waktu')}
+          <th>Foto</th><th>Catatan</th><th>Aksi</th>
+        </tr></thead>
+        <tbody>${rows||`<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text3)"><i class="ti ti-database-off" style="font-size:32px;display:block;margin-bottom:8px"></i>Tidak ada data yang cocok.</td></tr>`}</tbody>
+      </table></div>`;
+
+    // Pagination
+    let pb = `<span style="color:var(--text2);margin-right:7px">Hal. ${dpage}/${pages} (${total} rekaman)</span>`;
+    pb += `<button class="pb" onclick="sdp(${dpage-1})" ${dpage===1?'disabled':''}>‹</button>`;
+    for (let p = Math.max(1, dpage-2); p <= Math.min(pages, dpage+2); p++)
+      pb += `<button class="pb ${p===dpage?'active':''}" onclick="sdp(${p})">${p}</button>`;
+    pb += `<button class="pb" onclick="sdp(${dpage+1})" ${dpage===pages?'disabled':''}>›</button>`;
+    document.getElementById('dpagi').innerHTML = pb;
+  } catch (e) { document.getElementById('dtable-wrap').innerHTML = `<div class="empty"><i class="ti ti-wifi-off"></i><p>Gagal memuat data.</p></div>`; }
+}
+
+function srt(c) { if(dsort===c) dasc=!dasc; else{dsort=c;dasc=true;} loadData(); }
+function sdp(p) { if(p>=1) { dpage=p; loadData(); } }
+
+// ═══════════════════════════════════════════════════════
+//  SIGHTING FORM
+// ═══════════════════════════════════════════════════════
+function buildForm(s) {
+  const opts = tigerList.map(t =>
+    `<option value="${t.tiger_code}" ${s&&s.tiger_code===t.tiger_code?'selected':''}>${t.tiger_code}${t.name?' — '+t.name:''}</option>`
+  ).join('');
+  return `
+    <div class="fr">
+      <div class="fg">
+        <label class="fl" for="ftiger">ID Harimau<span class="required">*</span></label>
+        <select class="fi" id="ftiger"><option value="">— Pilih Individu —</option>${opts}</select>
+      </div>
+      <div class="fg">
+        <label class="fl">Jenis Kelamin<span class="required">*</span></label>
+        <div class="rg">
+          <label class="rl"><input type="radio" name="fsex" value="M" ${s&&s.sex==='M'?'checked':''}> Jantan</label>
+          <label class="rl"><input type="radio" name="fsex" value="F" ${s&&s.sex==='F'?'checked':''}> Betina</label>
+          <label class="rl"><input type="radio" name="fsex" value="U" ${!s||s.sex==='U'?'checked':''}> Tdk Diketahui</label>
+        </div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Sisi Belang Terfoto<span class="required">*</span></label>
+      <div class="rg">
+        <label class="rl"><input type="checkbox" id="fsl" ${s&&(s.stripe_side==='left'||s.stripe_side==='both')?'checked':''}> Kiri</label>
+        <label class="rl"><input type="checkbox" id="fsr" ${s&&(s.stripe_side==='right'||s.stripe_side==='both')?'checked':''}> Kanan</label>
+      </div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl" for="flat">Latitude (Y)<span class="required">*</span></label><input class="fi" type="number" id="flat" step="0.00001" min="-90" max="90" placeholder="-0.42000" value="${s?parseFloat(s.latitude).toFixed(5):''}"></div>
+      <div class="fg"><label class="fl" for="flng">Longitude (X)<span class="required">*</span></label><input class="fi" type="number" id="flng" step="0.00001" min="-180" max="180" placeholder="102.58000" value="${s?parseFloat(s.longitude).toFixed(5):''}"></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label class="fl" for="fdate">Tanggal Rekaman<span class="required">*</span></label><input class="fi" type="date" id="fdate" value="${s?s.recorded_date.slice(0,10):''}"></div>
+      <div class="fg"><label class="fl" for="ftime">Waktu Rekaman<span class="required">*</span></label><input class="fi" type="time" id="ftime" value="${s?s.recorded_time?.slice(0,5):''}"></div>
+    </div>
+    <div class="fr" style="margin-bottom:12px">
+      <div><label class="fl">Foto Belang Kiri (JPG/PNG ≤10MB)</label>
+        <div class="ub" onclick="this.querySelector('input').click()">
+          <input type="file" accept="image/*" name="stripe_left" id="fstripe_left" onchange="prevPhoto(this,'psl')" style="display:none">
+          <i class="ti ti-upload" style="font-size:17px;display:block;margin-bottom:3px"></i>
+          <div style="font-size:10px">${s&&s.stripe_left_url?'Ada foto — klik untuk ganti':'Klik untuk upload'}</div>
+        </div>
+        <div id="psl" class="pr">${s&&s.stripe_left_url?`<img src="${s.stripe_left_url}" class="pi" alt="Foto belang kiri">`:''}
+      </div></div>
+      <div><label class="fl">Foto Belang Kanan (JPG/PNG ≤10MB)</label>
+        <div class="ub" onclick="this.querySelector('input').click()">
+          <input type="file" accept="image/*" name="stripe_right" id="fstripe_right" onchange="prevPhoto(this,'psr')" style="display:none">
+          <i class="ti ti-upload" style="font-size:17px;display:block;margin-bottom:3px"></i>
+          <div style="font-size:10px">${s&&s.stripe_right_url?'Ada foto — klik untuk ganti':'Klik untuk upload'}</div>
+        </div>
+        <div id="psr" class="pr">${s&&s.stripe_right_url?`<img src="${s.stripe_right_url}" class="pi" alt="Foto belang kanan">`:''}
+      </div></div>
+    </div>
+    <div class="fr" style="margin-bottom:12px">
+      <div><label class="fl">Lampiran Foto Kiri (multi-file)</label>
+        <div class="ub" onclick="this.querySelector('input').click()">
+          <input type="file" accept="image/*,video/*" multiple name="attach_left" onchange="prevMulti(this,'pal')" style="display:none">
+          <i class="ti ti-paperclip" style="font-size:17px;display:block;margin-bottom:3px"></i>
+          <div style="font-size:10px">Kamera trap kiri (≤50MB)</div>
+        </div>
+        <div id="pal" class="pr"></div>
+      </div>
+      <div><label class="fl">Lampiran Foto Kanan (multi-file)</label>
+        <div class="ub" onclick="this.querySelector('input').click()">
+          <input type="file" accept="image/*,video/*" multiple name="attach_right" onchange="prevMulti(this,'par')" style="display:none">
+          <i class="ti ti-paperclip" style="font-size:17px;display:block;margin-bottom:3px"></i>
+          <div style="font-size:10px">Kamera trap kanan (≤50MB)</div>
+        </div>
+        <div id="par" class="pr"></div>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl" for="fnotes">Catatan Lapangan <span style="font-weight:400;color:var(--text3)">(opsional)</span></label>
+      <textarea class="fi" id="fnotes" rows="3" maxlength="2000" style="resize:vertical" placeholder="Deskripsi kondisi, perilaku, atau informasi penting…">${s?s.notes||'':''}</textarea>
+    </div>`;
+}
+
+function prevPhoto(inp, pid) {
+  const c = document.getElementById(pid); if (!c) return; c.innerHTML = '';
+  if (inp.files[0]) { const r = new FileReader(); r.onload = e => { const img = document.createElement('img'); img.src = e.target.result; img.className='pi'; img.alt='Preview'; c.appendChild(img); }; r.readAsDataURL(inp.files[0]); }
+}
+function prevMulti(inp, pid) {
+  const c = document.getElementById(pid); if (!c) return; c.innerHTML = '';
+  Array.from(inp.files).slice(0,4).forEach(f => {
+    if (f.type.startsWith('image/')) { const r = new FileReader(); r.onload = e => { const img = document.createElement('img'); img.src=e.target.result; img.className='pi'; img.alt='Preview'; c.appendChild(img); }; r.readAsDataURL(f); }
+    else { const ph = document.createElement('div'); ph.className='ph'; ph.innerHTML='<i class="ti ti-video"></i>'; c.appendChild(ph); }
+  });
+}
+
+function openAdd() {
+  editId = null;
+  document.getElementById('mtitle').textContent = 'Tambah Rekaman Baru';
+  document.getElementById('mbody').innerHTML = buildForm(null);
+  document.getElementById('modal').classList.add('open');
+}
+
+async function openEdit(id) {
+  editId = id;
+  document.getElementById('mtitle').textContent = 'Edit Rekaman #' + id;
+  document.getElementById('mbody').innerHTML = spinner();
+  document.getElementById('modal').classList.add('open');
+  try {
+    const { data } = await api('/sightings/' + id);
+    document.getElementById('mbody').innerHTML = buildForm(data);
+  } catch (e) { closeModal(); }
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); editId = null; }
+
+async function saveSighting() {
+  const tid  = document.getElementById('ftiger').value;
+  const sex  = document.querySelector('input[name="fsex"]:checked')?.value;
+  const lat  = document.getElementById('flat').value;
+  const lng  = document.getElementById('flng').value;
+  const sl   = document.getElementById('fsl').checked;
+  const sr   = document.getElementById('fsr').checked;
+  const date = document.getElementById('fdate').value;
+  const time = document.getElementById('ftime').value;
+  const notes= document.getElementById('fnotes').value;
+
+  if (!tid)             return alert('Pilih ID Harimau.');
+  if (!sex)             return alert('Pilih jenis kelamin.');
+  if (!sl && !sr)       return alert('Pilih minimal satu sisi belang yang terfoto.');
+  if (!lat || isNaN(parseFloat(lat))) return alert('Koordinat Y (Latitude) tidak valid.');
+  if (!lng || isNaN(parseFloat(lng))) return alert('Koordinat X (Longitude) tidak valid.');
+  if (!date)            return alert('Tanggal rekaman wajib diisi.');
+  if (!time)            return alert('Waktu rekaman wajib diisi.');
+
+  const side = sl && sr ? 'both' : sl ? 'left' : 'right';
+  const fd   = new FormData();
+  fd.append('tiger_code', tid);
+  fd.append('sex', sex);
+  fd.append('latitude', lat);
+  fd.append('longitude', lng);
+  fd.append('stripe_side', side);
+  fd.append('recorded_date', date);
+  fd.append('recorded_time', time);
+  fd.append('notes', notes);
+
+  // Files
+  const addFile = (id, name) => { const f = document.getElementById(id)?.files?.[0]; if(f) fd.append(name, f); };
+  addFile('fstripe_left',  'stripe_left');
+  addFile('fstripe_right', 'stripe_right');
+  const addFiles = (id, name) => { Array.from(document.getElementById(id)?.files||[]).forEach(f => fd.append(name, f)); };
+  addFiles('attach_left_files',  'attach_left');
+  addFiles('attach_right_files', 'attach_right');
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:15px;height:15px;border-width:2px"></div> Menyimpan…';
+
+  try {
+    if (editId) {
+      await api('/sightings/' + editId, { method:'PATCH', body: fd });
+      toast('Rekaman berhasil diperbarui ✓');
+    } else {
+      await api('/sightings', { method:'POST', body: fd });
+      toast('Rekaman baru berhasil disimpan ✓');
+    }
+    closeModal();
+    loadData();
+  } catch (e) {
+    btn.disabled = false; btn.innerHTML = '<i class="ti ti-device-floppy"></i> Simpan';
+  }
+}
+
+function askDel(id)  { delId = id; document.getElementById('confirm').classList.add('open'); }
+function cancelDel() { delId = null; document.getElementById('confirm').classList.remove('open'); }
+async function confirmDel() {
+  if (!delId) return;
+  try {
+    await api('/sightings/' + delId, { method: 'DELETE' });
+    toast('Rekaman berhasil dihapus');
+    loadData();
+  } catch (e) {}
+  delId = null; document.getElementById('confirm').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════
+//  PETA
+// ═══════════════════════════════════════════════════════
+async function renderPeta(main) {
+  let tigerOpts = '';
+  try {
+    if (!tigerList.length) { const r = await api('/tigers'); tigerList = r.data || []; }
+    tigerOpts = tigerList.map(t => `<option value="${t.tiger_code}">${t.tiger_code}${t.name?' — '+t.name:''}</option>`).join('');
+  } catch(e){}
+
+  main.innerHTML = `
+    <div class="topbar">
+      <div><h1>Peta Sebaran</h1><p id="mcount">Memuat titik rekaman…</p></div>
+      <div class="tb-r" style="font-size:11px;color:var(--text2)">© OpenStreetMap contributors</div>
+    </div>
+    <div class="sb">
+      <i class="ti ti-filter" style="color:var(--text2)"></i>
+      <select class="fs" onchange="mTiger=this.value;reloadMap()" aria-label="Filter individu">
+        <option value="">Semua Individu</option>${tigerOpts}
+      </select>
+      <select class="fs" onchange="mSex=this.value;reloadMap()" aria-label="Filter JK">
+        <option value="">Semua JK</option>
+        <option value="M">Jantan</option>
+        <option value="F">Betina</option>
+        <option value="U">Tidak Diketahui</option>
+      </select>
+      <div style="margin-left:auto;display:flex;gap:14px;font-size:11px;color:var(--text2)">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#185FA5;display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px #185FA5"></span>Jantan</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#B5456B;display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px #B5456B"></span>Betina</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#888780;display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px #888780"></span>Tdk Diketahui</span>
+      </div>
+    </div>
+    <div style="padding:14px 22px"><div id="map"></div></div>`;
+
+  setTimeout(initMap, 120);
+}
+
+function initMap() {
+  if (typeof L === 'undefined') return;
+  if (lmap) { lmap.remove(); lmap = null; }
+  const el = document.getElementById('map'); if (!el) return;
+  lmap = L.map('map').setView([-0.5, 102.0], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', maxZoom: 18
+  }).addTo(lmap);
+  reloadMap();
+}
+
+async function reloadMap() {
+  if (!lmap) return;
+  lmarkers.forEach(m => m.remove()); lmarkers = [];
+  const params = new URLSearchParams();
+  if (mTiger) params.set('tiger_code', mTiger);
+  if (mSex)   params.set('sex', mSex);
+  try {
+    const { data, total } = await api('/map/points?' + params);
+    const el = document.getElementById('mcount'); if(el) el.textContent = `${total} titik rekaman ditampilkan`;
+    const sc = { M:'#185FA5', F:'#B5456B', U:'#888780' };
+    data.features.forEach(f => {
+      const p   = f.properties;
+      const col = sc[p.sex] || '#888780';
+      const icon = L.divIcon({ className:'', html:`<div style="width:13px;height:13px;border-radius:50%;background:${col};border:2.5px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.35);cursor:pointer"></div>`, iconSize:[13,13], iconAnchor:[6,6] });
+      const pop = `<div style="font-family:-apple-system,sans-serif;font-size:12px;min-width:170px;line-height:1.55">
+        <div style="font-weight:700;margin-bottom:4px">${p.tiger_code}${p.tiger_name?` <span style="font-weight:400;color:#555">— ${p.tiger_name}</span>`:''}</div>
+        <div style="color:#555">${SEX[p.sex]} · ${SIDE[p.stripe_side]}</div>
+        <div style="color:#555">${fdate(p.recorded_date)} · ${p.recorded_time?.slice(0,5)}</div>
+        <div style="font-family:monospace;color:#777;font-size:11px">${f.geometry.coordinates[1].toFixed(5)}, ${f.geometry.coordinates[0].toFixed(5)}</div>
+        ${p.notes?`<div style="margin-top:5px;padding-top:5px;border-top:1px solid #eee;color:#333;font-size:11px">${p.notes}</div>`:''}
+      </div>`;
+      const mk = L.marker([f.geometry.coordinates[1], f.geometry.coordinates[0]], { icon }).bindPopup(pop, { maxWidth: 280 }).addTo(lmap);
+      lmarkers.push(mk);
+    });
+    if (lmarkers.length > 0) { const g = L.featureGroup(lmarkers); lmap.fitBounds(g.getBounds().pad(.25)); }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+go('dashboard');
+</script>
+</body>
+</html>
