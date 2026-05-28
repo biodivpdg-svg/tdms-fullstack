@@ -84,9 +84,19 @@ router.post('/', upload.fields(SIGHTING_FIELDS), async (req, res) => {
     if (!tiger_code || !latitude || !longitude || !recorded_date || !recorded_time)
       return res.status(400).json({ success: false, error: 'Missing required fields: tiger_code, latitude, longitude, recorded_date, recorded_time' });
 
-    // Resolve tiger_id from tiger_code
+    // Resolve tiger_id from tiger_code, or create a new tiger profile if it does not exist
+    let tiger_id = null;
     const tRes = await client.query('SELECT id FROM tigers WHERE tiger_code = $1', [tiger_code]);
-    const tiger_id = tRes.rows[0]?.id || null;
+    if (tRes.rows[0]) {
+      tiger_id = tRes.rows[0].id;
+    } else {
+      const newTigerRes = await client.query(
+        `INSERT INTO tigers (tiger_code, name, sex, status, notes, first_recorded_at)
+         VALUES ($1, $2, $3, 'active', 'Otomatis dibuat dari penampakan baru.', $4) RETURNING id`,
+        [tiger_code, `Individu ${tiger_code}`, sex || 'U', recorded_date]
+      );
+      tiger_id = newTigerRes.rows[0].id;
+    }
 
     // Stripe photo URLs
     const stripeL = req.files?.stripe_left?.[0]  ? `/uploads/${req.files.stripe_left[0].filename}`  : null;
