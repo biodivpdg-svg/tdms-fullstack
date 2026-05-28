@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { pool } = require('../config/db');
 const upload   = require('../middleware/upload');
+const { parse } = require('csv-parse/sync');
 
 const SIGHTING_FIELDS = [
   { name: 'stripe_left',   maxCount: 1 },
@@ -219,6 +220,75 @@ router.delete('/:id/attachments/:attId', async (req, res) => {
     res.json({ success: true, message: 'Attachment deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── POST /api/sightings/import/csv ──────────────────────
+router.post('/import/csv', upload.single('csv_file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, error: 'File CSV tidak ditemukan' });
+  
+  const client = await pool.connect();
+  try {
+    const fileContent = require('fs').readFileSync(req.file.path, 'utf8');
+    const records = parse(fileContent, {
+      columns: true,
+      skip_empty_lines: true,
+      bom: true,
+      trim: true
+    });
+
+    await client.query('BEGIN');
+    
+    let inserted = 0;
+    for (const row of records) {
+      const tiger_code = row['ID Harimau'];
+      const rawSex = row['Jenis Kelamin'] || '';
+      const sex = rawSex.toLowerCase().includes('jantan') ? 'M' : (rawSex.toLowerCase().includes('betina') ? 'F' : 'U');
+      const lat = parseFloat(row['Latitude']);
+      const lng = parseFloat(row['Longitude']);
+      const rawSide = row['Belang'] || '';
+      const stripe_side = rawSide.toLowerCase() === 'kiri' ? 'left' : (rawSide.toLowerCase() === 'kanan' ? 'right' : 'both');
+      const recorded_date = row['Tanggal'];
+      const recorded_time = row['Waktu'];
+      const notes = row['Catatan'] || '';
+
+      if (!tiger_code || isNaN(lat) || isNaN(lng) || !recorded_date || !recorded_time) {
+        continue;
+      }
+
+      let tiger_id = null;
+      const tRes = await client.query('SELECT id FROM tigers WHERE tiger_code = $1', [tiger_code]);
+      if (tRes.rows[0]) {
+        tiger_id = tRes.rows[0].id;
+      } else {
+        const newTigerRes = await client.query(
+          `INSERT INTO tigers (tiger_code, name, sex, status, notes, first_recorded_at)
+           VALUES ($1, $2, $3, 'active', 'Otomatis dibuat dari import CSV.', $4) RETURNING id`,
+          [tiger_code, `Individu ${tiger_code}`, sex, recorded_date]
+        );
+        tiger_id = newTigerRes.rows[0].id;
+      }
+
+      const hasL = stripe_side === 'left' || stripe_side === 'both';
+      const hasR = stripe_side === 'right' || stripe_side === 'both';
+
+      await client.query(
+        `INSERT INTO sightings
+           (tiger_id, tiger_code, sex, latitude, longitude, stripe_side,
+            has_stripe_left, has_stripe_right, recorded_date, recorded_time, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [tiger_id, tiger_code, sex, lat, lng, stripe_side, hasL, hasR, recorded_date, recorded_time, notes]
+      );
+      inserted++;
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: `Berhasil import ${inserted} rekaman`, inserted });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 });
 

@@ -14,11 +14,12 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (_req, file, cb) => {
-  const allowed = /jpeg|jpg|png|gif|webp|mp4|mov|avi/;
-  const ext  = allowed.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowed.test(file.mimetype);
-  if (ext && mime) return cb(null, true);
-  cb(new Error('File type not allowed. Only images and videos are accepted.'));
+  const allowed = /jpeg|jpg|png|gif|webp|mp4|mov|avi|csv/;
+  const ext = path.extname(file.originalname).toLowerCase();
+  const isExtAllowed = allowed.test(ext);
+  const isMimeAllowed = allowed.test(file.mimetype) || ext === '.csv';
+  if (isExtAllowed && isMimeAllowed) return cb(null, true);
+  cb(new Error('File type not allowed. Only images, videos, and CSVs are accepted.'));
 };
 
 const maxSizeMB = parseInt(process.env.MAX_FILE_SIZE_MB || '50');

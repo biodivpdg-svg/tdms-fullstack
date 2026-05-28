@@ -568,6 +568,8 @@ function buildDataShell() {
   <div class="topbar">
     <div><h1>Data Rekaman</h1><p id="dtotal">Memuat…</p></div>
     <div class="tb-r">
+      <input type="file" id="csv-upload" accept=".csv" style="display:none" onchange="uploadCSV(this)">
+      <button class="btn" onclick="document.getElementById('csv-upload').click()" id="btn-import"><i class="ti ti-upload"></i> Import CSV</button>
       <button class="btn" onclick="window.open('${API}/sightings/export/csv','_blank')"><i class="ti ti-download"></i> Export CSV</button>
       <button class="btn btn-p" onclick="openAdd()"><i class="ti ti-plus"></i> Tambah Rekaman</button>
     </div>
@@ -642,6 +644,33 @@ async function loadData() {
 
 function srt(c) { if(dsort===c) dasc=!dasc; else{dsort=c;dasc=true;} loadData(); }
 function sdp(p) { if(p>=1) { dpage=p; loadData(); } }
+
+async function uploadCSV(inp) {
+  const file = inp.files[0];
+  if (!file) return;
+  const btn = document.getElementById('btn-import');
+  const orgHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:13px;height:13px;border-width:2px"></div> Memproses...';
+  
+  const fd = new FormData();
+  fd.append('csv_file', file);
+  
+  try {
+    const res = await api('/sightings/import/csv', { method: 'POST', body: fd });
+    toast(res.message);
+    inp.value = ''; // reset input
+    loadData();
+    // Refresh tiger list to include newly created ones from CSV
+    const t = await api('/tigers');
+    tigerList = t.data || [];
+  } catch (e) {
+    inp.value = '';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orgHtml;
+  }
+}
 
 // ═══════════════════════════════════════════════════════
 //  SIGHTING FORM
