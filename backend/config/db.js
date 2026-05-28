@@ -5,17 +5,17 @@ const useSSL = process.env.DB_SSL === 'true' || (connectionString && !connection
 
 const poolConfig = connectionString
   ? {
-      connectionString,
-      ssl: useSSL ? { rejectUnauthorized: false } : false
-    }
+    connectionString,
+    ssl: useSSL ? { rejectUnauthorized: false } : false
+  }
   : {
-      host:     process.env.DB_HOST     || 'localhost',
-      port:     parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME     || 'tdms',
-      user:     process.env.DB_USER     || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-    };
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    database: process.env.DB_NAME || 'tdms',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'postgres',
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+  };
 
 poolConfig.max = 10;
 poolConfig.idleTimeoutMillis = 30000;
