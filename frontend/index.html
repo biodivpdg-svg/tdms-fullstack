@@ -702,7 +702,7 @@ function buildForm(s) {
     <div class="fr" style="margin-bottom:12px">
       <div><label class="fl">Lampiran Foto Kiri (multi-file)</label>
         <div class="ub" onclick="this.querySelector('input').click()">
-          <input type="file" accept="image/*,video/*" multiple name="attach_left" onchange="prevMulti(this,'pal')" style="display:none">
+          <input type="file" accept="image/*,video/*" multiple name="attach_left" id="attach_left_files" onchange="prevMulti(this,'pal')" style="display:none">
           <i class="ti ti-paperclip" style="font-size:17px;display:block;margin-bottom:3px"></i>
           <div style="font-size:10px">Kamera trap kiri (≤50MB)</div>
         </div>
@@ -710,7 +710,7 @@ function buildForm(s) {
       </div>
       <div><label class="fl">Lampiran Foto Kanan (multi-file)</label>
         <div class="ub" onclick="this.querySelector('input').click()">
-          <input type="file" accept="image/*,video/*" multiple name="attach_right" onchange="prevMulti(this,'par')" style="display:none">
+          <input type="file" accept="image/*,video/*" multiple name="attach_right" id="attach_right_files" onchange="prevMulti(this,'par')" style="display:none">
           <i class="ti ti-paperclip" style="font-size:17px;display:block;margin-bottom:3px"></i>
           <div style="font-size:10px">Kamera trap kanan (≤50MB)</div>
         </div>

@@ -72,38 +72,50 @@ router.get('/:id', async (req, res) => {
 
 // ── POST /api/sightings ────────────────────────────────
 router.post('/', upload.fields(SIGHTING_FIELDS), async (req, res) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
     const {
       tiger_code, sex, latitude, longitude,
       stripe_side, recorded_date, recorded_time, notes,
     } = req.body;
 
-    // Validate required
+    // Validate required BEFORE acquiring a DB client
     if (!tiger_code || !latitude || !longitude || !recorded_date || !recorded_time)
       return res.status(400).json({ success: false, error: 'Missing required fields: tiger_code, latitude, longitude, recorded_date, recorded_time' });
 
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
     // Resolve tiger_id from tiger_code, or create a new tiger profile if it does not exist
     let tiger_id = null;
-    const tRes = await client.query('SELECT id FROM tigers WHERE tiger_code = $1', [tiger_code]);
-    if (tRes.rows[0]) {
-      tiger_id = tRes.rows[0].id;
-    } else {
-      const newTigerRes = await client.query(
-        `INSERT INTO tigers (tiger_code, name, sex, status, notes, first_recorded_at)
-         VALUES ($1, $2, $3, 'active', 'Otomatis dibuat dari penampakan baru.', $4) RETURNING id`,
-        [tiger_code, `Individu ${tiger_code}`, sex || 'U', recorded_date]
-      );
-      tiger_id = newTigerRes.rows[0].id;
-    }
-
+    const tRes = await client.query('SELECT id, stripe_left_url, stripe_right_url FROM tigers WHERE tiger_code = $1', [tiger_code]);
+    
     // Stripe photo URLs
     const stripeL = req.files?.stripe_left?.[0]  ? `/uploads/${req.files.stripe_left[0].filename}`  : null;
     const stripeR = req.files?.stripe_right?.[0] ? `/uploads/${req.files.stripe_right[0].filename}` : null;
     const hasL    = !!stripeL || stripe_side === 'left'  || stripe_side === 'both';
     const hasR    = !!stripeR || stripe_side === 'right' || stripe_side === 'both';
+
+    if (tRes.rows[0]) {
+      tiger_id = tRes.rows[0].id;
+      // Update the tiger's reference photos if they don't have them yet
+      let updates = [];
+      let params = [];
+      if (stripeL && !tRes.rows[0].stripe_left_url) { params.push(stripeL); updates.push(`stripe_left_url = $${params.length}`); }
+      if (stripeR && !tRes.rows[0].stripe_right_url) { params.push(stripeR); updates.push(`stripe_right_url = $${params.length}`); }
+      if (updates.length > 0) {
+        params.push(tiger_id);
+        await client.query(`UPDATE tigers SET ${updates.join(', ')} WHERE id = $${params.length}`, params);
+      }
+    } else {
+      const newTigerRes = await client.query(
+        `INSERT INTO tigers (tiger_code, name, sex, status, notes, first_recorded_at, stripe_left_url, stripe_right_url)
+         VALUES ($1, $2, $3, 'active', 'Otomatis dibuat dari penampakan baru.', $4, $5, $6) RETURNING id`,
+        [tiger_code, `Individu ${tiger_code}`, sex || 'U', recorded_date, stripeL, stripeR]
+      );
+      tiger_id = newTigerRes.rows[0].id;
+    }
+
+
 
     const { rows } = await client.query(
       `INSERT INTO sightings
