@@ -9,10 +9,9 @@ router.get('/', async (req, res) => {
     const { search, sex, status } = req.query;
     let   query  = `
       SELECT t.*,
-             COUNT(s.id)::int        AS sighting_count,
-             MAX(s.recorded_date)    AS last_sighting
+             (SELECT COUNT(*)::int FROM sightings s WHERE s.tiger_id = t.id) AS sighting_count,
+             (SELECT MAX(s.recorded_date) FROM sightings s WHERE s.tiger_id = t.id) AS last_sighting
       FROM   tigers t
-      LEFT JOIN sightings s ON s.tiger_id = t.id
       WHERE  t.status != 'deleted'
     `;
     const params = [];
@@ -30,7 +29,7 @@ router.get('/', async (req, res) => {
       query += ` AND t.status = $${params.length}`;
     }
 
-    query += ' GROUP BY t.id ORDER BY t.tiger_code ASC';
+    query += ' ORDER BY t.tiger_code ASC';
 
     const { rows } = await pool.query(query, params);
     res.json({ success: true, data: rows, total: rows.length });
@@ -43,11 +42,11 @@ router.get('/', async (req, res) => {
 router.get('/:code', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT t.*, COUNT(s.id)::int AS sighting_count, MAX(s.recorded_date) AS last_sighting
+      `SELECT t.*, 
+              (SELECT COUNT(*)::int FROM sightings s WHERE s.tiger_id = t.id) AS sighting_count,
+              (SELECT MAX(s.recorded_date) FROM sightings s WHERE s.tiger_id = t.id) AS last_sighting
        FROM   tigers t
-       LEFT JOIN sightings s ON s.tiger_id = t.id
-       WHERE  t.tiger_code = $1 AND t.status != 'deleted'
-       GROUP  BY t.id`,
+       WHERE  t.tiger_code = $1 AND t.status != 'deleted'`,
       [req.params.code]
     );
     if (!rows[0]) return res.status(404).json({ success: false, error: 'Tiger not found' });
@@ -61,11 +60,10 @@ router.get('/:code', async (req, res) => {
 router.get('/:code/sightings', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.*, COALESCE(json_agg(a.*) FILTER (WHERE a.id IS NOT NULL), '[]') AS attachments
+      `SELECT s.*, 
+              COALESCE((SELECT json_agg(a.*) FROM attachments a WHERE a.sighting_id = s.id), '[]') AS attachments
        FROM   sightings s
-       LEFT JOIN attachments a ON a.sighting_id = s.id
        WHERE  s.tiger_code = $1
-       GROUP  BY s.id
        ORDER  BY s.recorded_date DESC, s.recorded_time DESC`,
       [req.params.code]
     );

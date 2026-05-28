@@ -20,8 +20,9 @@ router.get('/', async (req, res) => {
     const safeSort  = allowedSort.includes(sort)  ? sort  : 'recorded_date';
     const safeOrder = allowedOrder.includes(order) ? order : 'desc';
 
-    let   query  = `SELECT s.*, COALESCE(json_agg(a.*) FILTER (WHERE a.id IS NOT NULL),'[]') AS attachments
-                    FROM sightings s LEFT JOIN attachments a ON a.sighting_id = s.id WHERE 1=1`;
+    let   query  = `SELECT s.*, 
+                    COALESCE((SELECT json_agg(a.*) FROM attachments a WHERE a.sighting_id = s.id), '[]') AS attachments
+                    FROM sightings s WHERE 1=1`;
     const params = [];
 
     if (search) {
@@ -34,14 +35,13 @@ router.get('/', async (req, res) => {
     if (date_from)   { params.push(date_from);   query += ` AND s.recorded_date >= $${params.length}`; }
     if (date_to)     { params.push(date_to);     query += ` AND s.recorded_date <= $${params.length}`; }
 
-    query += ` GROUP BY s.id ORDER BY s.${safeSort} ${safeOrder}`;
-
-    // Count total (without pagination)
-    const countQ  = query.replace(/SELECT s\.\*, COALESCE.*?FROM/, 'SELECT COUNT(*) FROM').replace(/GROUP BY.*$/s, '');
+    // Count total (without pagination and sorting)
+    const countQ  = query.replace(/SELECT s\.\*.*?FROM/, 'SELECT COUNT(*) FROM');
     const { rows: cRows } = await pool.query(countQ, params);
     const total = parseInt(cRows[0]?.count || 0);
 
-    // Paginate
+    // Sort and Paginate
+    query += ` ORDER BY s.${safeSort} ${safeOrder}`;
     const offset = (parseInt(page) - 1) * parseInt(per);
     params.push(parseInt(per)); query += ` LIMIT $${params.length}`;
     params.push(offset);       query += ` OFFSET $${params.length}`;
@@ -57,9 +57,10 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT s.*, COALESCE(json_agg(a.*) FILTER (WHERE a.id IS NOT NULL),'[]') AS attachments
-       FROM sightings s LEFT JOIN attachments a ON a.sighting_id = s.id
-       WHERE s.id = $1 GROUP BY s.id`,
+      `SELECT s.*, 
+              COALESCE((SELECT json_agg(a.*) FROM attachments a WHERE a.sighting_id = s.id), '[]') AS attachments
+       FROM sightings s
+       WHERE s.id = $1`,
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ success: false, error: 'Sighting not found' });

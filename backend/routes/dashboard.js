@@ -82,10 +82,11 @@ router.get('/recent', async (req, res) => {
 router.get('/top-tigers', async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT t.tiger_code, t.name, t.sex, t.status, COUNT(s.id)::int AS sighting_count
-       FROM tigers t LEFT JOIN sightings s ON s.tiger_id = t.id
+      `SELECT t.tiger_code, t.name, t.sex, t.status, 
+              (SELECT COUNT(*)::int FROM sightings s WHERE s.tiger_id = t.id) AS sighting_count
+       FROM tigers t
        WHERE t.status != 'deleted'
-       GROUP BY t.id ORDER BY sighting_count DESC LIMIT 5`
+       ORDER BY sighting_count DESC LIMIT 5`
     );
     res.json({ success: true, data: rows });
   } catch (err) {
