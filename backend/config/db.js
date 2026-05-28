@@ -25,12 +25,19 @@ const pool = new Pool(poolConfig);
 
 async function testConnection() {
   try {
+    console.log('🔄 Attempting to connect to PostgreSQL...');
+    if (connectionString) {
+      console.log('ℹ️ Using DATABASE_URL connection string (SSL:', useSSL ? 'enabled' : 'disabled', ')');
+    } else {
+      console.log(`ℹ️ Using connection parameters -> Host: ${poolConfig.host}, Port: ${poolConfig.port}, Database: ${poolConfig.database}, User: ${poolConfig.user}`);
+    }
     const client = await pool.connect();
     const res = await client.query('SELECT NOW() as now');
     console.log('✅ PostgreSQL connected —', res.rows[0].now);
     client.release();
   } catch (err) {
     console.error('❌ PostgreSQL connection failed:', err.message);
+    console.error('   Error stack:', err.stack);
     console.error('   Check your .env DB_* settings and make sure PostgreSQL is running.');
   }
 }
