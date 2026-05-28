@@ -545,7 +545,8 @@ async function openTiger(code) {
 function closeTM() { document.getElementById('tmodal').classList.remove('open'); }
 
 function openAddTiger() {
-  alert('Fitur tambah individu baru akan tersedia di versi berikutnya.\nGunakan form Data untuk menambah rekaman dengan tiger_code baru, sistem akan otomatis mengenali individu baru.');
+  go('data');
+  setTimeout(() => openAdd(), 100);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -647,13 +648,14 @@ function sdp(p) { if(p>=1) { dpage=p; loadData(); } }
 // ═══════════════════════════════════════════════════════
 function buildForm(s) {
   const opts = tigerList.map(t =>
-    `<option value="${t.tiger_code}" ${s&&s.tiger_code===t.tiger_code?'selected':''}>${t.tiger_code}${t.name?' — '+t.name:''}</option>`
+    `<option value="${t.tiger_code}">${t.tiger_code}${t.name?' — '+t.name:''}</option>`
   ).join('');
   return `
     <div class="fr">
       <div class="fg">
         <label class="fl" for="ftiger">ID Harimau<span class="required">*</span></label>
-        <select class="fi" id="ftiger"><option value="">— Pilih Individu —</option>${opts}</select>
+        <input class="fi" type="text" id="ftiger" list="tiger_list" placeholder="Ketikan ID atau pilih dari list..." value="${s?s.tiger_code:''}" autocomplete="off">
+        <datalist id="tiger_list">${opts}</datalist>
       </div>
       <div class="fg">
         <label class="fl">Jenis Kelamin<span class="required">*</span></label>
